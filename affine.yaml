@@ -1,0 +1,70 @@
+version: '3.9'
+services:
+  affine:
+    image: ghcr.io/toeverything/affine-graphql:${AFFINE_REVISION:-stable}
+    ports:
+      - '${PORT:-3010}:3010'
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - ${UPLOAD_LOCATION}:/root/.affine/storage
+      - ${CONFIG_LOCATION}:/root/.affine/config
+    env_file:
+      - .env
+    environment:
+      REDIS_SERVER_HOST: redis
+      DATABASE_URL: 'postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-affine}'
+    depends_on:
+      - redis
+      - postgres
+      - affine_migration
+#    healthcheck:
+#      test: ['CMD', 'curl', '-f', 'http://localhost:3010/health']
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+
+  affine_migration:
+    image: ghcr.io/toeverything/affine-graphql:${AFFINE_REVISION:-stable}
+    volumes:
+      - ${UPLOAD_LOCATION}:/root/.affine/storage
+      - ${CONFIG_LOCATION}:/root/.affine/config
+    command: ['sh', '-c', 'node ./scripts/self-host-predeploy.js']
+    env_file:
+      - .env
+    environment:
+      REDIS_SERVER_HOST: redis
+      DATABASE_URL: 'postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-affine}'
+    # Note: 'depends_on' will not wait for health checks in Swarm mode
+    depends_on:
+      - postgres
+      - redis
+
+  redis:
+    image: redis
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      restart_policy:
+        condition: any # Restarts regardless of exit code
+
+  postgres:
+    image: postgres:16
+    volumes:
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE:-affine}
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', '${DB_USERNAME}', '-d', '${DB_DATABASE:-affine}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      restart_policy:
+        condition: any # Restarts regardless of exit code
