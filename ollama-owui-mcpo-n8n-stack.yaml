@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - OLLAMA_HOST="0.0.0.0"
+    restart: unless-stopped
+ 
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  mcpo-control-panel:
+    image: daswer123/mcpo-control-panel:latest
+    container_name: mcpo-control-panel
+    ports:
+      - "8083:8083"
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      MCPO_MANAGER_HOST: "0.0.0.0"
+      MCPO_MANAGER_PORT: "8083"
+      MCPO_MANAGER_DATA_DIR: "/data"
+    command: ["uv", "run", "python", "-m", "mcpo_control_panel", "--host", "0.0.0.0", "--port", "8083", "--config-dir", "/data"]
+    restart: unless-stopped
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: n8n
+    ports:
+      - 5678:5678
+    environment:
+      - N8N_HOST=n8n.yourdomain.com
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - N8N_TRUST_PROXY=true
+      - N8N_SECURE_COOKIE=false
+      - WEBHOOK_URL=https://n8n.yourdomain.com
+      - GENERIC_TIMEZONE=America/Chicago
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - NODE_FUNCTION_ALLOW_EXTERNAL=dgram
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - n8n_files:/files
+    restart: unless-stopped
+
+
+
+volumes:
+  ollama:
+  mcpo-data:
+  open-webui:
+  n8n_data:
+  n8n_files:
