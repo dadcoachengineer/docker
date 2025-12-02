@@ -21,9 +21,7 @@ services:
     depends_on:
       - redis
       - database
-    restart: always
-    healthcheck:
-      disable: false
+    restart: unless-stopped
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -34,9 +32,7 @@ services:
           - node.labels.arch == x86
     volumes:
       - model-cache:/cache
-    restart: always
-    healthcheck:
-      disable: false
+    restart: unless-stopped
 
   redis:
     container_name: immich_redis
@@ -47,7 +43,7 @@ services:
           - node.labels.arch == x86
     healthcheck:
       test: redis-cli ping || exit 1
-    restart: always
+    restart: unless-stopped
 
   database:
     container_name: immich_postgres
@@ -65,7 +61,7 @@ services:
     volumes:
       - immich_database:/var/lib/postgresql/data
     shm_size: 128mb
-    restart: always
+    restart: unless-stopped
 
 volumes:
   model-cache:
